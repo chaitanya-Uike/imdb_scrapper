@@ -1,0 +1,12 @@
+{
+  "name": "imdb_scrapper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@types/request": "^2.48.8",
+    "cheerio": "^1.0.0-rc.12",
+    "fastify": "^4.13.0",
+    "request": "^2.88.2"
+ }
+}
