@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const cheerio = __importStar(require("cheerio"));
 const axios_1 = __importDefault(require("axios"));
+const querystring_1 = __importDefault(require("querystring"));
 class IMDBScraper {
     constructor() {
         this.baseURL = "https://www.imdb.com";
@@ -47,6 +48,41 @@ class IMDBScraper {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
             }
         });
+    }
+    search(title) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const options = {
+                title,
+                view: 'advanced',
+                count: 10
+            };
+            let { data } = yield this.request(`/search/title?${querystring_1.default.stringify(options)}`);
+            const $ = cheerio.load(data);
+            const results = [];
+            $('.lister-item').each((i, el) => {
+                results.push(this.getResult($(el)));
+            });
+            return { results, noOfResults: results.length };
+        });
+    }
+    getResult(elem) {
+        var _a;
+        const title = elem.find('.lister-item-header a').text().trim();
+        const year = elem.find('.lister-item-year').text().replace(/\(|\)/g, '').trim() || null;
+        const poster = elem.find('.lister-item-image img').attr('loadlate') || null;
+        const genre = elem.find('.genre').text().trim().split(', ') || null;
+        const imdbRating = elem.find('[name="ir"]').attr('data-value') || null;
+        const imdbVotes = elem.find('[name="nv"]').attr('data-value') || null;
+        const imdbID = (_a = elem.find('.lister-item-header a').attr('href')) === null || _a === void 0 ? void 0 : _a.split('/')[2];
+        return {
+            title,
+            year,
+            poster,
+            genre,
+            imdbRating,
+            imdbVotes,
+            imdbID
+        };
     }
     scrapeTitle(id) {
         var _a;
@@ -126,6 +162,27 @@ class IMDBScraper {
             .filter(x => x)
             .sort();
         return seasons;
+    }
+    episodes(id, season) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { data } = yield this.request(`/title/${id}/episodes?season=${season || 1}`);
+            const $ = cheerio.load(data);
+            return this.getEpisodes($);
+        });
+    }
+    getEpisodes($) {
+        const episodes = $('.eplist > .list_item').map(function () {
+            return {
+                image: $(this).find('.image img').first().attr('src'),
+                episode: Number($(this).find('[itemprop="episodeNumber"]').attr('content')),
+                airDate: $(this).find('.airdate').first().text().trim(),
+                name: $(this).find('[itemprop="name"]').first().text().trim(),
+                description: $(this).find('[itemprop="description"]').first().text().trim(),
+                rating: Number($(this).find('.ipl-rating-star__rating').first().text().trim()),
+                votes: Number($(this).find('.ipl-rating-star__total-votes').first().text().trim().replace('(', '').replace(')', '').replace(',', ''))
+            };
+        }).toArray();
+        return episodes;
     }
     filterDistinct(value, index, self) { return self.indexOf(value) === index; }
 }

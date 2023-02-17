@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import axios from 'axios';
+import qs from "querystring"
 
 class IMDBScraper {
     baseURL = "https://www.imdb.com"
@@ -12,6 +13,43 @@ class IMDBScraper {
             }
         })
     }
+
+    async search(title: string) {
+        const options = {
+            title,
+            view: 'advanced',
+            count: 10
+        }
+
+        let { data } = await this.request(`/search/title?${qs.stringify(options)}`)
+        const $ = cheerio.load(data)
+        const results: any[] = []
+        $('.lister-item').each((i, el) => {
+            results.push(this.getResult($(el)))
+        })
+
+        return { results, noOfResults: results.length }
+    }
+
+    getResult(elem: cheerio.Cheerio<cheerio.Element>) {
+        const title = elem.find('.lister-item-header a').text().trim()
+        const year = elem.find('.lister-item-year').text().replace(/\(|\)/g, '').trim() || null
+        const poster = elem.find('.lister-item-image img').attr('loadlate') || null
+        const genre = elem.find('.genre').text().trim().split(', ') || null
+        const imdbRating = elem.find('[name="ir"]').attr('data-value') || null
+        const imdbVotes = elem.find('[name="nv"]').attr('data-value') || null
+        const imdbID = elem.find('.lister-item-header a').attr('href')?.split('/')[2]
+        return {
+            title,
+            year,
+            poster,
+            genre,
+            imdbRating,
+            imdbVotes,
+            imdbID
+        }
+    }
+
 
     async scrapeTitle(id: string) {
         let { data } = await this.request(`/title/${id}`)
@@ -113,6 +151,29 @@ class IMDBScraper {
             .sort();
 
         return seasons
+    }
+
+    async episodes(id: string, season: number) {
+        const { data } = await this.request(`/title/${id}/episodes?season=${season || 1}`)
+        const $ = cheerio.load(data)
+
+        return this.getEpisodes($)
+    }
+
+    getEpisodes($: cheerio.CheerioAPI) {
+        const episodes = $('.eplist > .list_item').map(function () {
+            return {
+                image: $(this).find('.image img').first().attr('src'),
+                episode: Number($(this).find('[itemprop="episodeNumber"]').attr('content')),
+                airDate: $(this).find('.airdate').first().text().trim(),
+                name: $(this).find('[itemprop="name"]').first().text().trim(),
+                description: $(this).find('[itemprop="description"]').first().text().trim(),
+                rating: Number($(this).find('.ipl-rating-star__rating').first().text().trim()),
+                votes: Number($(this).find('.ipl-rating-star__total-votes').first().text().trim().replace('(', '').replace(')', '').replace(',', ''))
+            }
+        }).toArray()
+
+        return episodes
     }
 
     filterDistinct(value: string, index: number, self: string[]) { return self.indexOf(value) === index }

@@ -7,6 +7,10 @@
     "@types/request": "^2.48.8",
     "cheerio": "^1.0.0-rc.12",
     "fastify": "^4.13.0",
+    "querystring": "^0.2.1",
     "request": "^2.88.2"
- }
+  },
+  "devDependencies": {
+    "@types/axios": "^0.14.0"
+  }
 }
